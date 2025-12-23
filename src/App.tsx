@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import DeedsPage from "./pages/DeedsPage";
 import VerifyPage from "./pages/VerifyPage";
@@ -21,11 +22,11 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
             <Route path="/auth" element={<AuthPage />} />
-            <Route path="/deeds" element={<DeedsPage />} />
-            <Route path="/verify" element={<VerifyPage />} />
-            <Route path="/transfer/:deedNumber" element={<TransferOwnershipPage />} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/deeds" element={<ProtectedRoute><DeedsPage /></ProtectedRoute>} />
+            <Route path="/verify" element={<ProtectedRoute><VerifyPage /></ProtectedRoute>} />
+            <Route path="/transfer/:deedNumber" element={<ProtectedRoute><TransferOwnershipPage /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
