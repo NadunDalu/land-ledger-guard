@@ -1,182 +1,182 @@
 import { Land, Owner, Deed, AuditLog } from './types';
 
-const LAND_KEY = 'land_registry_lands';
-const OWNER_KEY = 'land_registry_owners';
-const DEED_KEY = 'land_registry_deeds';
-const LOG_KEY = 'land_registry_logs';
-
-// Helper to get data from storage
-function getStored<T>(key: string): T[] {
-  const stored = localStorage.getItem(key);
-  return stored ? JSON.parse(stored) : [];
-}
-
-// Helper to set data to storage
-function setStored<T>(key: string, data: T[]) {
-  localStorage.setItem(key, JSON.stringify(data));
-}
+const API_URL = 'http://localhost:5000/api';
 
 // --- Audit Logging ---
 
-function logAction(action: 'CREATE' | 'UPDATE' | 'TRANSFER', details: string) {
-  const logs = getStored<AuditLog>(LOG_KEY);
-  const newLog: AuditLog = {
-    id: crypto.randomUUID(),
-    timestamp: new Date().toISOString(),
-    user: 'Admin', // Hardcoded for now
-    action,
-    details,
-  };
-  logs.push(newLog);
-  setStored(LOG_KEY, logs);
-}
-
-export function getAuditLogs(): AuditLog[] {
-  return getStored<AuditLog>(LOG_KEY).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+export async function getAuditLogs(): Promise<AuditLog[]> {
+  // TODO: Implement backend endpoint if needed
+  return [];
 }
 
 // --- Land Management ---
 
-export function registerLand(land: Land): void {
-  const lands = getStored<Land>(LAND_KEY);
-  if (lands.some(l => l.landNumber === land.landNumber)) {
-    throw new Error(`Land with number ${land.landNumber} already exists.`);
+export async function registerLand(land: Land): Promise<Land> {
+  const response = await fetch(`${API_URL}/lands`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(land),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.msg || 'Failed to register land');
   }
-  lands.push(land);
-  setStored(LAND_KEY, lands);
-  logAction('CREATE', `Registered land: ${land.landNumber}`);
+  return response.json();
 }
 
-export function getLand(landNumber: string): Land | undefined {
-  const lands = getStored<Land>(LAND_KEY);
-  return lands.find(l => l.landNumber === landNumber);
+export async function getLand(landNumber: string): Promise<Land | undefined> {
+  try {
+    const response = await fetch(`${API_URL}/lands/${landNumber}`);
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error('Failed to fetch land');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return undefined;
+  }
 }
 
-export function getAllLands(): Land[] {
-  return getStored<Land>(LAND_KEY);
+export async function getAllLands(): Promise<Land[]> {
+  try {
+    const response = await fetch(`${API_URL}/lands`);
+    if (!response.ok) throw new Error('Failed to fetch lands');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
 
 // --- Owner Management ---
 
-export function registerOwner(owner: Owner): void {
-  const owners = getStored<Owner>(OWNER_KEY);
-  if (owners.some(o => o.nic === owner.nic)) {
-    throw new Error(`Owner with NIC ${owner.nic} already exists.`);
+export async function registerOwner(owner: Owner): Promise<Owner> {
+  const response = await fetch(`${API_URL}/owners`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(owner),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.msg || 'Failed to register owner');
   }
-  owners.push(owner);
-  setStored(OWNER_KEY, owners);
-  logAction('CREATE', `Registered owner: ${owner.fullName} (${owner.nic})`);
+  return response.json();
 }
 
-export function getOwner(nic: string): Owner | undefined {
-  const owners = getStored<Owner>(OWNER_KEY);
-  return owners.find(o => o.nic === nic);
+export async function getOwner(nic: string): Promise<Owner | undefined> {
+  try {
+    const response = await fetch(`${API_URL}/owners/${nic}`);
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error('Failed to fetch owner');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return undefined;
+  }
 }
 
-export function getAllOwners(): Owner[] {
-  return getStored<Owner>(OWNER_KEY);
+export async function getAllOwners(): Promise<Owner[]> {
+  try {
+    const response = await fetch(`${API_URL}/owners`);
+    if (!response.ok) throw new Error('Failed to fetch owners');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function searchOwners(query: string): Promise<Owner[]> {
+  try {
+    const response = await fetch(`${API_URL}/owners/search?q=${encodeURIComponent(query)}`);
+    if (!response.ok) throw new Error('Failed to search owners');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
 
 // --- Deed Management ---
 
-export function registerDeed(deed: Deed): void {
-  const deeds = getStored<Deed>(DEED_KEY);
-  if (deeds.some(d => d.deedNumber === deed.deedNumber)) {
-    throw new Error(`Deed with number ${deed.deedNumber} already exists.`);
+export async function getNextDeedId(previousDeedId?: string): Promise<string> {
+  try {
+    const url = previousDeedId 
+      ? `${API_URL}/deeds/next-id?previousDeedId=${previousDeedId}`
+      : `${API_URL}/deeds/next-id`;
+      
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch next deed ID');
+    const data = await response.json();
+    return data.nextId;
+  } catch (error) {
+    console.error(error);
+    // Fallback
+    if (previousDeedId) return `${previousDeedId}-01`;
+    return `D${Date.now().toString().slice(-3)}`;
   }
-  
-  // Validate Land and Owner exist
-  if (!getLand(deed.landNumber)) {
-    throw new Error(`Land ${deed.landNumber} does not exist.`);
-  }
-  if (!getOwner(deed.ownerNic)) {
-    throw new Error(`Owner ${deed.ownerNic} does not exist.`);
-  }
-
-  deeds.push(deed);
-  setStored(DEED_KEY, deeds);
-  logAction('CREATE', `Registered deed: ${deed.deedNumber} for land ${deed.landNumber}`);
 }
 
-export function transferOwnership(oldDeedNumber: string, newDeedDetails: Omit<Deed, 'status' | 'previousDeedNumber'>): void {
-  const deeds = getStored<Deed>(DEED_KEY);
-  const oldDeedIndex = deeds.findIndex(d => d.deedNumber === oldDeedNumber);
-  
-  if (oldDeedIndex === -1) {
-    throw new Error(`Deed ${oldDeedNumber} not found.`);
+export async function registerDeed(deed: Deed): Promise<Deed> {
+  const response = await fetch(`${API_URL}/deeds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(deed),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.msg || 'Failed to register deed');
   }
-  
-  if (deeds[oldDeedIndex].status !== 'ACTIVE') {
-    throw new Error(`Deed ${oldDeedNumber} is not active.`);
-  }
-
-  // Update old deed status
-  deeds[oldDeedIndex].status = 'TRANSFERRED';
-  
-  // Create new deed
-  const newDeed: Deed = {
-    ...newDeedDetails,
-    status: 'ACTIVE',
-    previousDeedNumber: oldDeedNumber,
-  };
-
-  if (deeds.some(d => d.deedNumber === newDeed.deedNumber)) {
-     throw new Error(`Deed with number ${newDeed.deedNumber} already exists.`);
-  }
-
-   // Validate Land and Owner exist
-  if (!getLand(newDeed.landNumber)) {
-    throw new Error(`Land ${newDeed.landNumber} does not exist.`);
-  }
-  if (!getOwner(newDeed.ownerNic)) {
-    throw new Error(`Owner ${newDeed.ownerNic} does not exist.`);
-  }
-
-  deeds.push(newDeed);
-  setStored(DEED_KEY, deeds);
-  logAction('TRANSFER', `Transferred ownership from deed ${oldDeedNumber} to ${newDeed.deedNumber}`);
+  return response.json();
 }
 
-export function getDeed(deedNumber: string): Deed | undefined {
-  const deeds = getStored<Deed>(DEED_KEY);
-  return deeds.find(d => d.deedNumber === deedNumber);
+export async function transferOwnership(oldDeedNumber: string, newDeedDetails: Omit<Deed, 'status' | 'previousDeedNumber'>): Promise<Deed> {
+  const response = await fetch(`${API_URL}/deeds/transfer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ oldDeedNumber, newDeedDetails }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.msg || 'Failed to transfer ownership');
+  }
+  return response.json();
 }
 
-export function getAllDeeds(): Deed[] {
-  return getStored<Deed>(DEED_KEY);
+export async function getDeed(deedNumber: string): Promise<Deed | undefined> {
+  try {
+    const response = await fetch(`${API_URL}/deeds/${deedNumber}`);
+    if (response.status === 404) return undefined;
+    if (!response.ok) throw new Error('Failed to fetch deed');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return undefined;
+  }
 }
 
-export function getOwnershipHistory(landNumber: string): Deed[] {
-  const deeds = getStored<Deed>(DEED_KEY);
-  return deeds
-    .filter(d => d.landNumber === landNumber)
-    .sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
+export async function getAllDeeds(): Promise<Deed[]> {
+  try {
+    const response = await fetch(`${API_URL}/deeds`);
+    if (!response.ok) throw new Error('Failed to fetch deeds');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+}
+
+export async function getOwnershipHistory(landNumber: string): Promise<Deed[]> {
+  try {
+    const response = await fetch(`${API_URL}/deeds/history/${landNumber}`);
+    if (!response.ok) throw new Error('Failed to fetch history');
+    return response.json();
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
 }
 
 // Initialize sample data if empty
-export function initializeSampleData() {
-  if (getAllLands().length === 0) {
-    registerLand({
-      landNumber: 'L001',
-      district: 'Colombo',
-      division: 'Colombo 1',
-      area: '10',
-      areaUnit: 'Perches',
-      mapReference: 'M-101'
-    });
-    registerOwner({
-      nic: '123456789V',
-      fullName: 'John Doe',
-      address: '123 Main St, Colombo',
-      contactNumber: '0771234567'
-    });
-    registerDeed({
-      deedNumber: 'D001',
-      landNumber: 'L001',
-      ownerNic: '123456789V',
-      registrationDate: new Date().toISOString(),
-      deedType: 'Gift',
-      status: 'ACTIVE'
-    });
-  }
+export async function initializeSampleData() {
+  // No-op
 }

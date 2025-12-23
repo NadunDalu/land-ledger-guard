@@ -11,7 +11,7 @@ const BlockchainPage = () => {
   useEffect(() => {
     const loadData = async () => {
       await initializeSampleData();
-      getAllDeeds(); // Ensure deeds are loaded (which populates on-chain registry)
+      await getAllDeeds(); // Ensure deeds are loaded
       setRecordCount(getAllOnChainRecords().length);
     };
     loadData();

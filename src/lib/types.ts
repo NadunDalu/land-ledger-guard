@@ -24,6 +24,8 @@ export interface Deed {
   deedType: string;
   status: DeedStatus;
   previousDeedNumber?: string; // For transfers
+  previousOwnerNic?: string; // Snapshot of previous owner
+  previousRegistrationDate?: string; // Snapshot of previous registration date
   notes?: string;
 }
 
