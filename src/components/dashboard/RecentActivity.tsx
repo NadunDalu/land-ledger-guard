@@ -18,6 +18,7 @@ export function RecentActivity({ logs }: RecentActivityProps) {
         <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
           <FileText className="h-12 w-12 mb-3 opacity-50" />
           <p className="text-sm">No activity logs yet</p>
+          <p className="text-xs mt-1">Activity will appear here once deeds are registered</p>
         </div>
       </div>
     );
