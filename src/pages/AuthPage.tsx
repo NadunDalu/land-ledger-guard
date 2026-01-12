@@ -10,15 +10,15 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import governmentEmblem from '@/assets/government-emblem.png';
 
-const emailSchema = z.string().email('Please enter a valid email address');
-const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
+const emailSchema = z.string().min(1, 'Username is required');
+const passwordSchema = z.string().min(1, 'Password is required');
 
 export default function AuthPage() {
   const { user, loading, signIn } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   useEffect(() => {
@@ -31,7 +31,7 @@ export default function AuthPage() {
     e.preventDefault();
     
     try {
-      emailSchema.parse(email);
+      emailSchema.parse(username);
       passwordSchema.parse(password);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -41,15 +41,11 @@ export default function AuthPage() {
     }
 
     setIsSubmitting(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(username, password);
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        toast.error('Invalid email or password. Please try again.');
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message || 'Login failed');
     } else {
       toast.success('Welcome back!');
       navigate('/');
@@ -96,13 +92,13 @@ export default function AuthPage() {
           <CardContent className="pt-4">
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  placeholder="Enter your official email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  id="username"
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   required
                   className="bg-background"
                 />

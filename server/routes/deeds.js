@@ -65,10 +65,49 @@ router.get('/next-id', async (req, res) => {
   }
 });
 
-// Get all deeds
+// Get all deeds (Search)
 router.get('/', async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM deeds');
+
+    // Log if it's considered a search (this endpoint is used for listing all)
+    // To explicitly log "Search", we usually look for query params, but here we'll log the listing action
+    // Note: The user might have meant searching in the verify page or general search.
+    // If there is no user context here (no auth middleware), we might default to 'System' or pass user in header.
+    // Assuming 'Admin' or reading from headers if available. For now defaulting to 'System' or 'Guest' if generic.
+    // However, the user request says "signouts with user names". 
+    // Since we don't have middleware passing user yet, I'll check headers or just log 'Unknown' if not provided.
+    // Ideally, we should update the frontend to pass the user.
+    
+    // For simplicity in this demo, I will skip logging 'Get all' as 'Search' usually implies a query.
+    
+    res.json(result.rows.map(mapDeed));
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// Search deeds endpoint (if not existing, let's create one or modify existing)
+// Looking at previous files, there is owners/search. Is there deeds/search?
+// The previous read didn't show deeds/search. I will add one.
+router.get('/search', async (req, res) => {
+  try {
+    const { q, username } = req.query; // Expect username to be passed for logging
+    if (!q) return res.json([]);
+
+    const result = await db.query(
+      'SELECT * FROM deeds WHERE deed_number ILIKE $1 OR land_number ILIKE $1 OR owner_nic ILIKE $1', 
+      [`%${q}%`]
+    );
+    
+    // Log Search
+    const user = username || 'Guest';
+    await db.query(
+      'INSERT INTO audit_logs ("user", action, details) VALUES ($1, $2, $3)',
+      [user, 'SEARCH', `Searched deeds for: ${q}`]
+    );
+
     res.json(result.rows.map(mapDeed));
   } catch (err) {
     console.error(err.message);
@@ -134,9 +173,12 @@ router.post('/', async (req, res) => {
       [deedNumber, landNumber, ownerNic, registrationDate, deedType, status || 'ACTIVE', notes]
     );
 
+    // Get username from body or header, default to Admin
+    const user = req.body.username || 'Admin';
+
     await client.query(
       'INSERT INTO audit_logs ("user", action, details) VALUES ($1, $2, $3)',
-      ['Admin', 'CREATE', `Registered deed: ${deedNumber} for land ${landNumber}`]
+      [user, 'CREATE', `Registered deed: ${deedNumber} for land ${landNumber}`]
     );
 
     await client.query('COMMIT');
@@ -196,10 +238,12 @@ router.post('/transfer', async (req, res) => {
         notes
       ]
     );
+    // Get username
+    const user = req.body.username || 'Admin';
 
     await client.query(
       'INSERT INTO audit_logs ("user", action, details) VALUES ($1, $2, $3)',
-      ['Admin', 'TRANSFER', `Transferred ownership from deed ${oldDeedNumber} to ${deedNumber}`]
+      [user, 'TRANSFER', `Transferred ownership from deed ${oldDeedNumber} to ${deedNumber}`]
     );
 
     await client.query('COMMIT');

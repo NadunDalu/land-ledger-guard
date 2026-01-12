@@ -6,15 +6,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getLand, getDeed, getOwnershipHistory, getOwner } from '@/lib/deedStorage';
+import { getLand, getDeed, getOwnershipHistory, getOwner, searchDeeds } from '@/lib/deedStorage';
 import { Land, Deed, Owner } from '@/lib/types';
 import { Search, MapPin, FileText, History, ArrowRightLeft, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 const VerifyPage = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchType, setSearchType] = useState<'land' | 'deed'>('land');
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,7 +47,10 @@ const VerifyPage = () => {
         setError(`Land with number ${searchQuery} not found.`);
       }
     } else {
-      const deed = await getDeed(searchQuery);
+      // Use searchDeeds to trigger logging
+      const results = await searchDeeds(searchQuery, user?.username);
+      const deed = results.find(d => d.deedNumber === searchQuery) || results[0];
+
       if (deed) {
         const owner = await getOwner(deed.ownerNic);
         const land = await getLand(deed.landNumber);

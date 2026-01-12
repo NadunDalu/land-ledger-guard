@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { getAllOwners, registerLand, registerDeed, searchOwners, getNextDeedId } from '@/lib/deedStorage';
+import { getAllOwners, registerLand, registerDeed, searchOwners, getNextDeedId, getOwner, registerOwner } from '@/lib/deedStorage';
 import { MapPin, User, FileText, Search, CheckCircle2, ArrowRight, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -15,8 +15,11 @@ interface DeedRegistrationWizardProps {
   onSuccess: () => void;
 }
 
+import { useAuth } from '@/hooks/useAuth';
+
 export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
@@ -31,11 +34,12 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
     mapReference: '',
   });
 
-  const [selectedOwner, setSelectedOwner] = useState<Owner | null>(null);
-  const [ownerSearchQuery, setOwnerSearchQuery] = useState('');
-  const [owners, setOwners] = useState<Owner[]>([]);
-  const [filteredOwners, setFilteredOwners] = useState<Owner[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [ownerFormData, setOwnerFormData] = useState<Owner>({
+    nic: '',
+    fullName: '',
+    address: '',
+    contactNumber: ''
+  });
 
   const [deedData, setDeedData] = useState<Deed>({
     deedNumber: '',
@@ -46,42 +50,26 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
     status: 'ACTIVE',
   });
 
-  useEffect(() => {
-    const fetchOwners = async () => {
-      try {
-        const allOwners = await getAllOwners();
-        setOwners(allOwners);
-      } catch (error) {
-        console.error("Error fetching owners:", error);
-      }
-    };
-    fetchOwners();
-  }, []);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
-    setOwnerSearchQuery(query);
+  const handleOwnerChange = (field: keyof Owner) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setOwnerFormData(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  // Effect for debounced search
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(async () => {
-      if (ownerSearchQuery.trim()) {
-        try {
-          const results = await searchOwners(ownerSearchQuery);
-          setFilteredOwners(results);
-          setShowSuggestions(true);
-        } catch (error) {
-          console.error("Search failed", error);
+  const handleNicBlur = async () => {
+    if (ownerFormData.nic) {
+      try {
+        const existing = await getOwner(ownerFormData.nic);
+        if (existing) {
+          setOwnerFormData(existing);
+          toast({ 
+            title: "Existing Owner Found", 
+            description: "Loaded details for this NIC." 
+          });
         }
-      } else {
-        setFilteredOwners([]);
-        setShowSuggestions(false);
+      } catch (error) {
+        console.error("Error checking owner:", error);
       }
-    }, 300);
-
-    return () => clearTimeout(delayDebounceFn);
-  }, [ownerSearchQuery]);
+    }
+  };
 
   // Generate Deed ID when entering step 3
   useEffect(() => {
@@ -115,10 +103,10 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
   };
 
   const validateStep2 = () => {
-    if (!selectedOwner) {
+    if (!ownerFormData.nic || !ownerFormData.fullName || !ownerFormData.address || !ownerFormData.contactNumber) {
       toast({
-        title: "Owner Required",
-        description: "Please select an owner.",
+        title: "Missing Information",
+        description: "Please fill in all owner details.",
         variant: "destructive"
       });
       return false;
@@ -163,13 +151,28 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
         console.log("Land might already exist", e);
       }
 
+      // Register Owner if not exists
+      try {
+        const existing = await getOwner(ownerFormData.nic);
+        if (!existing) {
+          await registerOwner(ownerFormData);
+        } else {
+          // If expecting an update, we would do it here. 
+          // Currently we just use the existing owner linkage.
+          // Ideally we warn if details mismatch, but for now we assume linkage by NIC is primary.
+        }
+      } catch (e) {
+        console.error("Error handling owner:", e);
+        // Fallthrough, might fail at deed registration if owner doesn't exist
+      }
+
       const finalDeedData = {
         ...deedData,
         landNumber: landData.landNumber,
-        ownerNic: selectedOwner!.nic
+        ownerNic: ownerFormData.nic
       };
 
-      await registerDeed(finalDeedData);
+      await registerDeed(finalDeedData, user?.username);
 
       setShowConfirmDialog(false);
       setShowSuccessDialog(true);
@@ -260,63 +263,49 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
               )}
 
               {step === 2 && (
-                <div className="space-y-6">
-                  <div className="space-y-2 relative">
-                    <Label>Search Owner by NIC or Name</Label>
-                    <div className="relative">
-                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Enter NIC number or Name..."
-                        className="pl-8"
-                        value={ownerSearchQuery}
-                        onChange={handleSearchChange}
-                        onFocus={() => {
-                          if (ownerSearchQuery && filteredOwners.length > 0) {
-                            setShowSuggestions(true);
-                          }
-                        }}
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-lg flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" /> Owner Details
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ownerNic">NIC (National ID) *</Label>
+                      <Input 
+                        id="ownerNic" 
+                        value={ownerFormData.nic} 
+                        onChange={handleOwnerChange('nic')} 
+                        onBlur={handleNicBlur}
+                        placeholder="123456789V" 
                       />
                     </div>
-                    {showSuggestions && filteredOwners.length > 0 && (
-                      <div className="border rounded-md mt-1 max-h-40 overflow-y-auto absolute z-50 bg-background w-full shadow-md top-full">
-                        {filteredOwners.map(owner => (
-                          <div
-                            key={owner.nic}
-                            className="p-2 hover:bg-muted cursor-pointer flex justify-between items-center border-b last:border-0"
-                            onClick={() => {
-                              setSelectedOwner(owner);
-                              setOwnerSearchQuery(owner.nic);
-                              setShowSuggestions(false);
-                            }}
-                          >
-                            <div className="flex flex-col">
-                              <span className="font-medium">{owner.fullName}</span>
-                              <span className="text-xs text-muted-foreground">{owner.nic}</span>
-                            </div>
-                            {selectedOwner?.nic === owner.nic && <CheckCircle2 className="h-4 w-4 text-primary" />}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {selectedOwner && (
-                    <div className="bg-muted/50 p-4 rounded-lg space-y-2 border">
-                      <h4 className="font-semibold flex items-center gap-2">
-                        <User className="h-4 w-4" /> Selected Owner
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <span className="text-muted-foreground">Full Name:</span>
-                        <span>{selectedOwner.fullName}</span>
-                        <span className="text-muted-foreground">NIC:</span>
-                        <span>{selectedOwner.nic}</span>
-                        <span className="text-muted-foreground">Address:</span>
-                        <span>{selectedOwner.address}</span>
-                        <span className="text-muted-foreground">Contact:</span>
-                        <span>{selectedOwner.contactNumber}</span>
-                      </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Full Name *</Label>
+                      <Input 
+                        id="fullName" 
+                        value={ownerFormData.fullName} 
+                        onChange={handleOwnerChange('fullName')} 
+                        placeholder="John Doe" 
+                      />
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label htmlFor="contactNumber">Contact Number *</Label>
+                      <Input 
+                        id="contactNumber" 
+                        value={ownerFormData.contactNumber} 
+                        onChange={handleOwnerChange('contactNumber')} 
+                        placeholder="0711234567" 
+                      />
+                    </div>
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <Label htmlFor="address">Address *</Label>
+                      <Input 
+                        id="address" 
+                        value={ownerFormData.address} 
+                        onChange={handleOwnerChange('address')} 
+                        placeholder="123 Main St, Colombo" 
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -393,7 +382,7 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
                   </div>
                 </div>
 
-                {selectedOwner && (
+                {ownerFormData.nic && (
                   <>
                     <Separator />
                     <div>
@@ -401,8 +390,8 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
                         <User className="h-4 w-4" /> Owner Details
                       </h4>
                       <div className="text-sm space-y-1">
-                        <p><span className="font-medium">Name:</span> {selectedOwner.fullName}</p>
-                        <p><span className="font-medium">NIC:</span> {selectedOwner.nic}</p>
+                        <p><span className="font-medium">Name:</span> {ownerFormData.fullName}</p>
+                        <p><span className="font-medium">NIC:</span> {ownerFormData.nic}</p>
                       </div>
                     </div>
                   </>
@@ -443,8 +432,8 @@ export function DeedRegistrationWizard({ onSuccess }: DeedRegistrationWizardProp
             <div className="space-y-2">
               <h4 className="font-semibold text-sm">Owner Information</h4>
               <div className="text-sm grid grid-cols-2 gap-1">
-                <span className="text-muted-foreground">Name:</span> <span>{selectedOwner?.fullName}</span>
-                <span className="text-muted-foreground">NIC:</span> <span>{selectedOwner?.nic}</span>
+                <span className="text-muted-foreground">Name:</span> <span>{ownerFormData.fullName}</span>
+                <span className="text-muted-foreground">NIC:</span> <span>{ownerFormData.nic}</span>
               </div>
             </div>
           </div>

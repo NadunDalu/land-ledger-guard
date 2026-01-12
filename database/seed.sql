@@ -18,3 +18,9 @@ ON CONFLICT (deed_number) DO NOTHING;
 -- Insert Sample Audit Log
 INSERT INTO audit_logs ("user", action, details)
 VALUES ('System', 'CREATE', 'Initialized sample data');
+
+-- Insert Sample Admin based on provided image
+INSERT INTO admin (use_id, user_name, password, user_role, full_name)
+VALUES (1, 'nadun', 'nadun123', 'Addmin', 'Nadun Daluwatta')
+ON CONFLICT (use_id) DO NOTHING;
+-- Note: 'Addmin' spelling is intentional based on user requirement/image, though 'Admin' is standard.

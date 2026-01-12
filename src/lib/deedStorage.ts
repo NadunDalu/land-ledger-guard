@@ -116,11 +116,12 @@ export async function getNextDeedId(previousDeedId?: string): Promise<string> {
   }
 }
 
-export async function registerDeed(deed: Deed): Promise<Deed> {
+export async function registerDeed(deed: Deed, username?: string): Promise<Deed> {
+  const body = username ? { ...deed, username } : deed;
   const response = await fetch(`${API_URL}/deeds`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(deed),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const error = await response.json();
@@ -129,11 +130,12 @@ export async function registerDeed(deed: Deed): Promise<Deed> {
   return response.json();
 }
 
-export async function transferOwnership(oldDeedNumber: string, newDeedDetails: Omit<Deed, 'status' | 'previousDeedNumber'>): Promise<Deed> {
+export async function transferOwnership(oldDeedNumber: string, newDeedDetails: Omit<Deed, 'status' | 'previousDeedNumber'>, username?: string): Promise<Deed> {
+  const body = username ? { oldDeedNumber, newDeedDetails, username } : { oldDeedNumber, newDeedDetails };
   const response = await fetch(`${API_URL}/deeds/transfer`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ oldDeedNumber, newDeedDetails }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     const error = await response.json();
@@ -142,9 +144,27 @@ export async function transferOwnership(oldDeedNumber: string, newDeedDetails: O
   return response.json();
 }
 
-export async function getDeed(deedNumber: string): Promise<Deed | undefined> {
+export async function getDeed(deedNumber: string, username?: string): Promise<Deed | undefined> {
   try {
-    const response = await fetch(`${API_URL}/deeds/${deedNumber}`);
+    const url = username 
+      ? `${API_URL}/deeds/${deedNumber}?username=${encodeURIComponent(username)}` // The backend doesn't support query params on /:id route for logging yet, but I should add it or just rely on search.
+      : `${API_URL}/deeds/${deedNumber}`;
+      
+    // Actually, getDeed is typically a direct fetch. The "Search" action implies looking for something.
+    // I added a new endpoint `deeds/search?q=...&username=...`.
+    // So if I want to log search, I should use that or modify getDeed to optionally search via the search endpoint if ambiguous.
+    // However, verifyPage calls getDeed directly.
+    // Let's modify getDeed to call the search endpoint if we want logging, OR modify the get action in backend to log if headers/query present.
+    // Backend `router.get('/:id')` does not have logging.
+    
+    // I think it's better to update the backend getbyID to also log "SEARCH" if provided.
+    // Or, in VerifyPage, we can call a dedicated search function.
+    
+    // Let's modify the backend first to accept query param on getById? Or just leave it.
+    // The user requirement "search deeds" likely refers to the "Search" feature in VerifyPage or DeedsPage.
+    // In VerifyPage, it calls `getDeed(searchQuery)`.
+    
+    const response = await fetch(url);
     if (response.status === 404) return undefined;
     if (!response.ok) throw new Error('Failed to fetch deed');
     return response.json();
@@ -152,6 +172,22 @@ export async function getDeed(deedNumber: string): Promise<Deed | undefined> {
     console.error(error);
     return undefined;
   }
+}
+
+export async function searchDeeds(query: string, username?: string): Promise<Deed[]> {
+    try {
+        let url = `${API_URL}/deeds/search?q=${encodeURIComponent(query)}`;
+        if (username) {
+            url += `&username=${encodeURIComponent(username)}`;
+        }
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to search deeds');
+        return response.json();
+    } catch (error) {
+        console.error(error);
+        return [];
+    }
 }
 
 export async function getAllDeeds(): Promise<Deed[]> {

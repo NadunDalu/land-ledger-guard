@@ -8,11 +8,13 @@ import { useToast } from '@/components/ui/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 
 const TransferOwnershipPage = () => {
   const { deedNumber } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [sourceDeed, setSourceDeed] = useState<Deed | null>(null);
   const [newDeedNumber, setNewDeedNumber] = useState('');
 
@@ -51,7 +53,7 @@ const TransferOwnershipPage = () => {
 
       // We need to omit status and previousDeedNumber as they are handled by transferOwnership
       const { status, previousDeedNumber, ...transferData } = data;
-      await transferOwnership(sourceDeed.deedNumber, transferData);
+      await transferOwnership(sourceDeed.deedNumber, transferData, user?.username);
       toast({
         title: "Success",
         description: `Ownership transferred to new deed ${data.deedNumber}.`,

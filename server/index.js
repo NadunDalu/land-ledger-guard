@@ -7,6 +7,7 @@ const db = require('./config/db');
 const landRoutes = require('./routes/lands');
 const ownerRoutes = require('./routes/owners');
 const deedRoutes = require('./routes/deeds');
+const authRoutes = require('./routes/auth');
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.get('/', (req, res) => {
 app.use('/api/lands', landRoutes);
 app.use('/api/owners', ownerRoutes);
 app.use('/api/deeds', deedRoutes);
+app.use('/api/auth', authRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
