@@ -141,3 +141,8 @@ land-ledger-guard/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Authors
+
+- Land Registry Department Development Team
+- Government of Sri Lanka - Ministry of Lands
