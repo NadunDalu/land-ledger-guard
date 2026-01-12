@@ -13,7 +13,8 @@ import {
   Shield,
   Edit,
   Eye,
-  RefreshCw
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
