@@ -18,6 +18,7 @@ const VerifyPage = () => {
   const navigate = useNavigate();
   const [searchType, setSearchType] = useState<'land' | 'deed'>('land');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const [landResult, setLandResult] = useState<{ land: Land, history: Deed[], currentDeed?: Deed, currentOwner?: Owner } | null>(null);
   const [deedResult, setDeedResult] = useState<{ deed: Deed, owner: Owner | undefined, land: Land | undefined, history: Deed[] } | null>(null);
   const [error, setError] = useState('');
