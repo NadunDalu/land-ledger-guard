@@ -117,21 +117,21 @@ const Index = () => {
         <div className="mb-12">
           <h2 className="font-display text-2xl font-semibold text-foreground mb-6">Our Services</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-card border border-border rounded-lg p-6">
+            <div className="bg-card border border-border rounded-lg p-6 transition-shadow hover:shadow-md">
               <Database className="h-10 w-10 text-primary mb-4" />
               <h3 className="font-semibold text-lg mb-2">Deed Registration</h3>
               <p className="text-sm text-muted-foreground">
                 Register new land deeds and property transfers with official government documentation.
               </p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-6">
+            <div className="bg-card border border-border rounded-lg p-6 transition-shadow hover:shadow-md">
               <FileSearch className="h-10 w-10 text-primary mb-4" />
               <h3 className="font-semibold text-lg mb-2">Record Verification</h3>
               <p className="text-sm text-muted-foreground">
                 Verify authenticity of land ownership documents and search the national registry.
               </p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-6">
+            <div className="bg-card border border-border rounded-lg p-6 transition-shadow hover:shadow-md">
               <CheckCircle2 className="h-10 w-10 text-primary mb-4" />
               <h3 className="font-semibold text-lg mb-2">Ownership Transfer</h3>
               <p className="text-sm text-muted-foreground">
