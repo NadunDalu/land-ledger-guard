@@ -18,7 +18,11 @@ export function StatsCard({
   variant = 'default' 
 }: StatsCardProps) {
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
+    <div 
+      className="group relative overflow-hidden rounded-xl border border-border bg-card p-6 shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+      role="region"
+      aria-label={`${title}: ${value}`}
+    >
       <div className="flex items-start justify-between">
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>
